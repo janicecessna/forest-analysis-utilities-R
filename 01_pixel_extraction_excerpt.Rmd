@@ -1,0 +1,68 @@
+---
+title: "01_pixel_extraction_excerpt"
+author: "Janice Cessna"
+date: "drafted 2/4/2020"
+output: html_document
+---
+
+```{r setup}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+library(tidyverse)
+library(raster)
+library(rgdal)
+```
+
+# This RMD is an excerpt from a more comprehensive pixel extraction process used elsewhere.  
+  
+  
+# Object-based pixel extraction  
+This code will extract pixels from multiple input tif layers using tree crowns hand digitized in ArcMap and collectively saved as a shapefile. The code and procedure is based on that presented by Max Kampen in his 2017 presentation "Development of a Photogrammetric Processing Workflow for UAV-based Multispectral Imagery" <https://cms.fh-eberswalde.de/_obj/C4877461-016F-4EB7-B267-50B42886DF8A/outline/MKampen_SRC_2017_final_presentation.pdf>.
+
+## Establishing shapefile as extraction limits  
+This assigns the shapefile to be used as the polygon boundary or boundaries (where pixels will be extracted from the reflectance imagery) to a variable name.   
+```{r}
+#assigns crown shapefile to variable name
+crowns <- shapefile("F:/jc0863a/ENVS_RS Dropbox/Janice Cessna/data/ak_spruce_crowns.shp")
+crowns@data
+```
+
+
+## Assembly of tif file list 
+This series of code chunks extracts creates a list of the appropriate reflectance files from within the dropbox folder structure.  
+```{r Troublesome site}
+#creates list of file names from within folder system
+files_list <- list.files(path = "F:/jc0863a/ENVS_RS Dropbox/Projects/pix4d/AK_fhm_2018/20180720_RE_Denali_Troublesome_120m_full/20180720_RE_Denali_Troublesome_120m/4_index/reflectance/tiles")
+
+#Subsets list of files to contain only appropriate reflectance data files  
+files_subset_index <-str_detect(files_list, "noalpha")  #select all with noalpha in name
+files_list <- files_list[files_subset_index]  #subset original files_list with noalpha group
+files_subset_index <- str_detect(files_list, "1_1.tif$")  #select all from subset with 1_1.tif in name
+reflectance_files_Troublesome <- files_list[files_subset_index]  #subset revised files_list with 1_1.tif group
+
+#re-establish full path name for each tif
+for (i in seq_along(reflectance_files_Troublesome)) {
+  reflectance_files_Troublesome[i] <- str_c("F:/jc0863a/ENVS_RS Dropbox/Projects/pix4d/AK_fhm_2018/20180720_RE_Denali_Troublesome_120m_full/20180720_RE_Denali_Troublesome_120m/4_index/reflectance/tiles", reflectance_files_Troublesome[i], sep = "/")
+}
+reflectance_files_Troublesome  #list of final files selection for Troublesome site
+```
+
+
+## Reflectance value extraction  
+Following the paths in the full list of reflectance files, functions from the raster package (e.g. stack, extract) convert the tifs located in the dropbox folders to a stack of images and use the crowns shapefile to extract pixel values from the stack. 
+```{r Troublesome site}
+#compiles multiple images into single variable reference
+VISNIR_Troublesome <- stack(reflectance_files_Troublesome)
+VISNIR_Troublesome
+
+#extracts pixels from each image using crown polygons and return information as list without crown IDs
+#this is a less preferable output fortmat, included for reference only
+#VISNIR_LIST_Troublesome <- extract(VISNIR_Troublesome, crowns)
+
+#extracts pixels from each image using crown polygons and return information as data frame with crown IDs
+VISNIR_DF_Troublesome <- extract(VISNIR_Troublesome, crowns, df = TRUE)
+
+#renames dataframe columns
+names(VISNIR_DF_Troublesome) <- c("Crown", "475", "560", "840", "717", "668")
+```
+
+
